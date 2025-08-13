@@ -22,14 +22,14 @@ class BakinMaskMapGeneratorApp:
                 "roughness_label": "Select Roughness Texture (Optional):",
                 "metallic_label": "Select Metallic Texture (Optional):",
                 "specular_label": "Select Specular Texture (Optional):",
-                "normal_check": "Generate Normal Map",
+                "normal_label": "Select Normal Texture (Optional):",
                 "generate_button": "Generate Mask Map and Textures",
                 "progress_label": "Progress:",
                 "progress_start": "Starting...",
                 "progress_albedo": "Copied albedo texture",
                 "progress_copy": "Copied {suffix} texture",
                 "progress_generate": "Generated {suffix} texture",
-                "progress_normal": "Generated normal map",
+                "progress_normal": "{action} normal texture",
                 "progress_mask": "Creating mask map",
                 "progress_complete": "Completed",
                 "footer_notice": "This application uses Pillow and NumPy for image processing.",
@@ -39,7 +39,7 @@ class BakinMaskMapGeneratorApp:
                 "error_albedo_read": "Failed to read albedo texture: {error}",
                 "error_albedo_copy": "Failed to copy albedo texture: {error}",
                 "error_texture": "Failed to process {suffix} texture: {error}",
-                "error_normal": "Failed to generate normal map: {error}",
+                "error_normal": "Failed to process normal texture: {error}",
                 "error_mask": "Failed to generate mask map.",
                 "success_message": "Textures and mask map generated in {output_dir}"
             },
@@ -50,14 +50,14 @@ class BakinMaskMapGeneratorApp:
                 "roughness_label": "ラフネステクスチャを選択（任意）：",
                 "metallic_label": "メタリックテクスチャを選択（任意）：",
                 "specular_label": "スペキュラテクスチャを選択（任意）：",
-                "normal_check": "ノーマルマップを生成",
+                "normal_label": "ノーマルテクスチャを選択（任意）：",
                 "generate_button": "マスクマップとテクスチャを生成",
                 "progress_label": "進行状況：",
                 "progress_start": "開始中...",
                 "progress_albedo": "アルベドテクスチャをコピーしました",
                 "progress_copy": "{suffix}テクスチャをコピーしました",
                 "progress_generate": "{suffix}テクスチャを生成しました",
-                "progress_normal": "ノーマルマップを生成しました",
+                "progress_normal": "ノーマルテクスチャを{action}",
                 "progress_mask": "マスクマップを作成中",
                 "progress_complete": "完了",
                 "footer_notice": "このアプリケーションはPillowとNumPyを使用して画像処理を行います。",
@@ -67,7 +67,7 @@ class BakinMaskMapGeneratorApp:
                 "error_albedo_read": "アルベドテクスチャの読み込みに失敗しました：{error}",
                 "error_albedo_copy": "アルベドテクスチャのコピーに失敗しました：{error}",
                 "error_texture": "{suffix}テクスチャの処理に失敗しました：{error}",
-                "error_normal": "ノーマルマップの生成に失敗しました：{error}",
+                "error_normal": "ノーマルテクスチャの処理に失敗しました：{error}",
                 "error_mask": "マスクマップの生成に失敗しました。",
                 "success_message": "テクスチャとマスクマップが {output_dir} に生成されました"
             }
@@ -79,7 +79,7 @@ class BakinMaskMapGeneratorApp:
         self.roughness_path = tk.StringVar()
         self.metallic_path = tk.StringVar()
         self.specular_path = tk.StringVar()
-        self.generate_normal = tk.BooleanVar(value=False)
+        self.normal_path = tk.StringVar()
 
         # Style
         padding_opts = {'padx': 10, 'pady': 5}
@@ -127,9 +127,11 @@ class BakinMaskMapGeneratorApp:
         ttk.Entry(self.main_frame, textvariable=self.specular_path, width=50).pack(**padding_opts)
         ttk.Button(self.main_frame, text="Browse", command=lambda: self.browse_file(self.specular_path)).pack(**padding_opts)
 
-        # Normal map generation checkbox
-        self.widgets["normal_check"] = ttk.Checkbutton(self.main_frame, text=self.translations["en"]["normal_check"], variable=self.generate_normal)
-        self.widgets["normal_check"].pack(anchor="w", **padding_opts)
+        # Normal texture selection
+        self.widgets["normal_label"] = ttk.Label(self.main_frame, text=self.translations["en"]["normal_label"])
+        self.widgets["normal_label"].pack(anchor="w", **padding_opts)
+        ttk.Entry(self.main_frame, textvariable=self.normal_path, width=50).pack(**padding_opts)
+        ttk.Button(self.main_frame, text="Browse", command=lambda: self.browse_file(self.normal_path)).pack(**padding_opts)
 
         # Generate button
         self.generate_button = ttk.Button(self.main_frame, text=self.translations["en"]["generate_button"], command=self.generate_mask_map)
@@ -191,7 +193,7 @@ class BakinMaskMapGeneratorApp:
         self.widgets["language_button"].configure(text=self.translations[new_lang]["language_button"])
         self.root.title(self.translations[new_lang]["title"])
         for key, widget in self.widgets.items():
-            if key != "language_button" and "{suffix}" not in self.translations[new_lang][key]:
+            if key != "language_button" and "{suffix}" not in self.translations[new_lang][key] and "{action}" not in self.translations[new_lang][key]:
                 widget.configure(text=self.translations[new_lang][key])
         self.root.update_idletasks()
         window_width = max(450, self.main_frame.winfo_reqwidth() + 20)
@@ -310,7 +312,7 @@ class BakinMaskMapGeneratorApp:
         roughness_path = self.roughness_path.get()
         metallic_path = self.metallic_path.get()
         specular_path = self.specular_path.get()
-        generate_normal = self.generate_normal.get()
+        normal_path = self.normal_path.get()
 
         if not albedo_path or not os.path.exists(albedo_path):
             messagebox.showerror("Error", self.translations[self.language.get()]["error_albedo_missing"])
@@ -321,7 +323,7 @@ class BakinMaskMapGeneratorApp:
         self.progress_label["text"] = self.translations[self.language.get()]["progress_start"]
         self.root.update()
 
-        total_steps = 6 + (1 if generate_normal else 0)
+        total_steps = 7  # Albedo + 5 textures (emissive, roughness, metallic, specular, normal) + mask map
         step_increment = 100.0 / total_steps
         current_step = 0
 
@@ -354,7 +356,8 @@ class BakinMaskMapGeneratorApp:
             (emissive_path, "emissive", lambda p, o: Image.new("L", albedo_size, 0).save(o)),
             (roughness_path, "roughness", self.generate_roughness_map),
             (metallic_path, "metallic", lambda p, o: Image.new("L", albedo_size, 0).save(o)),
-            (specular_path, "specular", self.generate_specular_map)
+            (specular_path, "specular", self.generate_specular_map),
+            (normal_path, "normal", self.generate_normal_map)
         ]
 
         for texture_path, suffix, generate_func in texture_configs:
@@ -367,26 +370,18 @@ class BakinMaskMapGeneratorApp:
                     img.save(output_path)
                     img.close()
                     self.progress_label["text"] = self.translations[self.language.get()]["progress_copy"].format(suffix=suffix)
+                    if suffix == "normal":
+                        self.progress_label["text"] = self.translations[self.language.get()]["progress_normal"].format(action="copied")
                 else:
                     generate_func(albedo_path, output_path)
                     self.progress_label["text"] = self.translations[self.language.get()]["progress_generate"].format(suffix=suffix)
+                    if suffix == "normal":
+                        self.progress_label["text"] = self.translations[self.language.get()]["progress_normal"].format(action="generated")
                 current_step += 1
                 self.progress["value"] = current_step * step_increment
                 self.root.update()
             except Exception as e:
                 messagebox.showerror("Error", self.translations[self.language.get()]["error_texture"].format(suffix=suffix, error=str(e)))
-                self.generate_button["state"] = "normal"
-                return
-
-        if generate_normal:
-            normal_output = os.path.join(output_dir, f"{albedo_name}_normal.png")
-            try:
-                self.generate_normal_map(albedo_path, normal_output)
-                current_step += 1
-                self.progress["value"] = current_step * step_increment
-                self.progress_label["text"] = self.translations[self.language.get()]["progress_normal"]
-                self.root.update()
-            except Exception:
                 self.generate_button["state"] = "normal"
                 return
 
